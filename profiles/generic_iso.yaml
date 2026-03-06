@@ -1,0 +1,19 @@
+name: generic_iso
+type: regex_multiline
+
+event_start_regex: '^(?<ts>\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d{3,6})?)\s+(?<level>TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\s+(?<rest>.*)$'
+
+timestamp:
+  field: ts
+  format: auto
+  timezone: America/Vancouver
+
+severity:
+  field: level
+
+message:
+  template: '{{rest}}'
+
+service:
+  from: path_parent
+  depth: 1

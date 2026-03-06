@@ -116,74 +116,62 @@ Copy `.env.example` to `.env`:
 
 ### 📝 Example Output (validate-profile)
 
-    ===================== log-csi Profile Validation =====================
-
-    Profile: generic_iso
-    Sample File: samples/example.log
-
-    Detected Event Start Pattern:
-      ^(\d{{4}}-\d{{2}}-\d{{2}}[ T]\d{{2}}:\d{{2}}:\d{{2}}(?:\.\d{{3,6}})?)\s+(TRACE|DEBUG|INFO|WARN|ERROR|FATAL)
-
-    Parsed Events: 152
-    Time Range Detected:
-      2026-03-01 09:58:11 → 2026-03-01 10:52:44
-
-    First Parsed Event:
-      Timestamp : 2026-03-01 09:58:11
-      Service   : api-gateway
-      Severity  : INFO
-      File Ref  : samples/example.log:1-3
-
-    Status: ✔ Profile appears valid.
-
-    =====================================================================
+    [bold]Parsed events:[/bold] 10
+    [bold]First event:[/bold]
+    {'ts_event': 1772388895.0, 'service': 'samples', 'severity': 'INFO', 'message': 'api-gateway Starting API gateway service', 'attrs': {}, 'source_ref': {'path': 'samples\\example.log', 'line_start': 1, 'line_end': 1}}
 
 ------------------------------------------------------------------------
 
 ## 🚀 Investigate an Incident
 
     log-csi query \
-      --root ./logs \
+      --root samples \
       --profile profiles/generic_iso.yaml \
       --start "2026-03-01 10:15:00" \
-      --end "2026-03-01 10:45:00" \
-      --tz "America/Vancouver"
+      --end "2026-03-01 10:45:00"
 
 ### 📝 Example Output (query)
 
-    ===================== log-csi Incident Report =====================
+### Incident Timeline
 
-    Time Window:
-      2026-03-01 10:15:00 → 2026-03-01 10:45:00 (America/Vancouver)
+    **2026-03-01 10:15:03**  
+    The incident begins with an error in the `samples` service, indicating a **lock wait timeout** in PostgreSQL, which results in a transaction being aborted. The error traceback shows that the timeout occurred during a commit operation in the database transaction module.  
+    *Evidence: [samples @ 2026-03-01 10:15:03 | samples\example.log:2-7]*
 
-    Summary Timeline (chronological):
+    **2026-03-01 10:16:20**  
+    Shortly after, the `auth-service` logs a **database connection timeout** after 30 seconds, indicating that it was unable to establish a connection to the database. This suggests that the database may be experiencing issues, possibly related to the previous lock timeout.  
+    *Evidence: [samples @ 2026-03-01 10:16:20 | samples\example.log:8-13]*
 
-    10:15:03 - postgres - ERROR
-      Lock wait timeout exceeded; transaction aborted.
-      [db/log-20260301.txt:88-95]
+    **2026-03-01 10:17:05**  
+    The `api-gateway` detects a **spike in 502 responses**, which typically indicates that the gateway is unable to reach the upstream services, likely due to the ongoing database issues affecting service availability.
+    *Evidence: [samples @ 2026-03-01 10:17:05 | samples\example.log:14-14]*
 
-    10:16:20 - auth-service - ERROR
-      Database connection timeout after 30 seconds.
-      [auth-service/log-20260301.txt:342-358]
+    **2026-03-01 10:18:10**
+    In response to the 502 errors, the `api-gateway` increases its **retry attempts** to four per request, indicating an attempt to mitigate the impact of the upstream failures.
+    *Evidence: [samples @ 2026-03-01 10:18:10 | samples\example.log:15-16]*
 
-    10:17:05 - api-gateway - WARN
-      Spike in 502 responses detected.
-      [api-gateway/log-20260301.txt:120-125]
+    **2026-03-01 10:22:34**
+    The `worker-service` reports a **growing queue backlog**, suggesting that jobs are not being processed in a timely manner, likely due to the issues with the database and the upstream services.
+    *Evidence: [samples @ 2026-03-01 10:22:34 | samples\example.log:17-17]*
 
-    10:18:10 - api-gateway - INFO
-      Retry attempts increased (x4 per request).
+    **2026-03-01 10:25:12**
+    The `worker-service` logs a critical error, stating it **failed to process job id=84921** due to an upstream timeout. This reinforces the impact of the database issues on downstream services.
+    *Evidence: [samples @ 2026-03-01 10:25:12 | samples\example.log:18-19]*
 
-    10:25–10:40 - multiple services - WARN/ERROR
-      Elevated error rates observed across dependent services.
+    **2026-03-01 10:30:45**
+    The `postgres` service indicates that the **lock has been cleared** after a transaction rollback, which may allow for normal operations to resume.
+    *Evidence: [samples @ 2026-03-01 10:30:45 | samples\example.log:20-20]*
 
-    Conclusion:
+    **2026-03-01 10:32:02**
+    The `auth-service` reports that **database connections are recovering**, suggesting that the service is beginning to stabilize following the resolution of the lock issue.  
+    *Evidence: [samples @ 2026-03-01 10:32:02 | samples\example.log:21-21]*
 
-    Most likely root cause was database lock contention in Postgres, which led to
-    authentication timeouts and cascading retries from api-gateway, causing 502s.
+    **2026-03-01 10:40:15**
+    Finally, the `api-gateway` notes that the **error rate is returning to normal**, indicating that the services are recovering from the previous disruptions.
+    *Evidence: [samples @ 2026-03-01 10:40:15 | samples\example.log:22-22]*
 
-    Confidence: Medium (based on correlated timestamps and error patterns)
-
-    ==================================================================
+    ### Conclusion
+    The incident appears to have been initiated by a **lock wait timeout** in the PostgreSQL database, which led to cascading failures across multiple services, including connection timeouts in the `auth-service`, increased error rates in the `api-gateway`, and job processing failures in the `worker-service`. The situation improved once the lock was cleared and database connections began to recover. The root cause can be attributed to database contention issues, but further investigation may be needed to identify specific contributing factors.
 
 ------------------------------------------------------------------------
 
