@@ -118,7 +118,7 @@ Copy `.env.example` to `.env`:
 
     [bold]Parsed events:[/bold] 10
     [bold]First event:[/bold]
-    {'ts_event': 1772388895.0, 'service': 'samples', 'severity': 'INFO', 'message': 'api-gateway Starting API gateway service', 'attrs': {}, 'source_ref': {'path': 'samples\\example.log', 'line_start': 1, 'line_end': 1}}
+    {'ts_event': '2026-03-01 10:14:55', 'service': 'samples', 'severity': 'INFO', 'message': 'api-gateway Starting API gateway service', 'attrs': {}, 'source_ref': {'path': 'samples\\example.log', 'line_start': 1, 'line_end': 1}}
 
 ------------------------------------------------------------------------
 
@@ -132,7 +132,7 @@ Copy `.env.example` to `.env`:
 
 ### 📝 Example Output (query)
 
-### Incident Timeline
+    ### Incident Timeline
 
     **2026-03-01 10:15:03**  
     The incident begins with an error in the `samples` service, indicating a **lock wait timeout** in PostgreSQL, which results in a transaction being aborted. The error traceback shows that the timeout occurred during a commit operation in the database transaction module.  
