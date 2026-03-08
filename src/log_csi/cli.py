@@ -1,4 +1,5 @@
 from __future__ import annotations
+import datetime
 import os
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -6,7 +7,7 @@ import typer
 from log_csi.config import load_profile
 from log_csi.parser.regex_multiline import parse_file_regex_multiline
 from dateutil import parser as dtparser
-from log_csi.storyline.summarize import summarize_storyline
+from log_csi.storyline.summarize import render_report, summarize_storyline
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -33,7 +34,13 @@ def validate_profile(
     print(f"[bold]Parsed events:[/bold] {len(events)}")
     if events:
         print("[bold]First event:[/bold]")
-        print(events[0].model_dump())
+        event = events[0]
+        dt = datetime.datetime.fromtimestamp(
+            event.ts_event, ZoneInfo("America/Vancouver"))
+        print({
+            **event.model_dump(),
+            "ts_event": dt.strftime("%Y-%m-%d %H:%M:%S")
+        })
 
 
 @app.command()
@@ -95,5 +102,14 @@ def query(
     window = window[:limit]
 
     model = os.getenv("STORYLINE_MODEL", "gpt-4o-mini")
-    storyline = summarize_storyline(window, model=model, tz_name=tz)
-    print(storyline)
+    window_start_str = dt_start.strftime("%Y-%m-%d %H:%M:%S")
+    window_end_str = dt_end.strftime("%Y-%m-%d %H:%M:%S")
+
+    report = summarize_storyline(
+        window,
+        model=model,
+        tz_name=tz,
+        window_start=window_start_str,
+        window_end=window_end_str,
+    )
+    print(render_report(report))
